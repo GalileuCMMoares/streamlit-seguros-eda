@@ -4,7 +4,7 @@ Aplicação Streamlit construída a partir da [EDA original](notebooks/eda-origi
 
 ## Aplicação publicada
 
-O endereço público do app será registrado aqui depois da publicação e da conferência em janela anônima.
+[Abrir o Observatório de custos no Streamlit Community Cloud](https://galileu-seguros-eda.streamlit.app/)
 
 ## Os dois painéis
 

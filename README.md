@@ -46,7 +46,7 @@ prompts/                        Registro do uso de IA
 .streamlit/config.toml          Identidade visual
 ```
 
-Os [rascunhos e a justificativa](entregas/README.md) acompanham o código. A [declaração de uso de IA](prompts/declaracao-uso-ia.md) descreve a assistência recebida.
+Os [rascunhos, a justificativa e a validação do app publicado](entregas/README.md) acompanham o código. A [declaração de uso de IA](prompts/declaracao-uso-ia.md) descreve a assistência recebida.
 
 ## Definições e limites
 

@@ -1,0 +1,26 @@
+[theme]
+base = "light"
+primaryColor = "#087E77"
+backgroundColor = "#F8FBFA"
+secondaryBackgroundColor = "#EAF2F1"
+textColor = "#17324A"
+font = "sans serif"
+
+[theme.light]
+primaryColor = "#087E77"
+backgroundColor = "#F8FBFA"
+secondaryBackgroundColor = "#EAF2F1"
+textColor = "#17324A"
+
+[theme.dark]
+primaryColor = "#31B7AB"
+backgroundColor = "#101C25"
+secondaryBackgroundColor = "#1B3037"
+textColor = "#F1F7F5"
+
+[client]
+showErrorDetails = "none"
+disableDataExport = true
+
+[browser]
+gatherUsageStats = false

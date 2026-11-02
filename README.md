@@ -53,7 +53,7 @@ Os [rascunhos e a justificativa](entregas/README.md) acompanham o código. A [de
 - **Custo alto:** custo faturado igual ou superior ao percentil 75 da **base tratada completa**. O limiar fica fixo ao filtrar, preservando a referência.
 - **Concentração no topo 10%:** soma dos custos dos `ceil(10% × n)` registros de maior custo dividida pela soma de custos do recorte.
 - **Amostras pequenas:** o app omite indicadores e visuais com menos de 10 registros; grupos de comparação do painel 2 com menos de 10 registros são omitidos.
-- **Privacidade:** a base é pública, não contém nome, contato ou identificador pessoal, e os gráficos recebem apenas dados agregados do servidor. Nenhum arquivo de segredos é versionado.
+- **Privacidade:** a base é pública, não contém nome, contato ou identificador direto, e os gráficos recebem apenas dados agregados do servidor. Nenhum arquivo de segredos é versionado.
 - **Interpretação:** `charges` corresponde a custos individuais faturados na base. A fonte não especifica um período de referência; portanto, o painel não os chama de custos anuais.
 
 Fonte de dados: [Kaggle — Medical Cost Personal Datasets](https://www.kaggle.com/datasets/mirichoi0218/insurance), que aponta para o [repositório de origem dos conjuntos Machine Learning with R](https://github.com/stedy/Machine-Learning-with-R-datasets). A ficha do Kaggle informa licença para base e conteúdo. Os gráficos e indicadores são descritivos e podem refletir composição de grupos ou fatores não observados.

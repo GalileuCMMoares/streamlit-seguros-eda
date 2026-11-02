@@ -282,7 +282,7 @@ with portfolio:
 
 st.divider()
 st.caption(
-    "Dados públicos e sem identificadores da fonte. Cada linha representa uma observação "
-    "anônima. Os resultados são descritivos, não estimam efeito causal e não servem para "
+    "Dados públicos da fonte, sem identificadores diretos. Os gráficos recebem "
+    "resumos agregados. Os resultados são descritivos, não estimam efeito causal e não servem para "
     "precificar ou decidir sobre uma pessoa."
 )

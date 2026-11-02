@@ -5,7 +5,7 @@ from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
 
-from src.analytics import filter_data, kpis
+from src.analytics import filter_data, histogram_summary, kpis, smoking_box_summary
 from src.data_loader import load_data
 
 APP_PATH = str(Path(__file__).resolve().parents[1] / "app.py")
@@ -62,6 +62,17 @@ class DashboardTests(unittest.TestCase):
         self.assertLess(summary["n"], len(data))
         self.assertLess(summary["high_cost_pct"], 25.1)
         self.assertGreater(summary["top_decile_share_pct"], 0)
+
+    def test_charts_receive_aggregates(self):
+        data = load_data()
+        for variable in ["idade", "imc", "filhos", "custo"]:
+            frequency = histogram_summary(data, variable)
+            self.assertEqual(len(data), int(frequency["registros"].sum()))
+            self.assertLess(len(frequency), len(data))
+        boxes = smoking_box_summary(data)
+        self.assertEqual({"Não", "Sim"}, set(boxes["fumante"]))
+        self.assertTrue((boxes["q1"] <= boxes["mediana"]).all())
+        self.assertTrue((boxes["mediana"] <= boxes["q3"]).all())
 
 
 if __name__ == "__main__":

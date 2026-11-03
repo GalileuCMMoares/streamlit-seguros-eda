@@ -115,11 +115,21 @@ with laboratory:
                 .reset_index()
                 .melt(id_vars="variavel_y", var_name="variavel_x", value_name="coeficiente")
             )
+            variable_position = {
+                variable: position
+                for position, variable in enumerate(valid_variables)
+            }
+            long_corr = long_corr.loc[
+                long_corr["variavel_y"].map(variable_position)
+                > long_corr["variavel_x"].map(variable_position)
+            ].copy()
             label_order = valid_variables
             base = alt.Chart(long_corr).encode(
                 x=alt.X("variavel_x:N", sort=label_order, title=None,
+                        scale=alt.Scale(domain=label_order),
                         axis=alt.Axis(labelAngle=0, labelExpr="datum.label === 'imc' ? 'IMC' : datum.label === 'custo' ? 'Custo' : datum.label === 'idade' ? 'Idade' : 'Filhos'")),
                 y=alt.Y("variavel_y:N", sort=label_order, title=None,
+                        scale=alt.Scale(domain=label_order),
                         axis=alt.Axis(labelExpr="datum.label === 'imc' ? 'IMC' : datum.label === 'custo' ? 'Custo' : datum.label === 'idade' ? 'Idade' : 'Filhos'")),
             )
             heatmap = base.mark_rect().encode(
@@ -138,7 +148,11 @@ with laboratory:
             )
             st.altair_chart(
                 (heatmap + values).properties(height=300), width="stretch",
-                alt="Mapa de calor da correlação entre as variáveis quantitativas selecionadas.",
+                alt="Mapa de calor da correlação; mostra um triângulo sem a diagonal para evitar pares repetidos.",
+            )
+            st.caption(
+                "Cada par aparece uma vez. A diagonal (correlação da variável consigo mesma) "
+                "e o triângulo espelhado foram omitidos."
             )
         st.caption("A correlação descreve associação na amostra filtrada; não demonstra causalidade.")
 
@@ -161,6 +175,7 @@ with laboratory:
                             x=alt.X("inicio:Q", title=NUMERIC_LABELS[variable]),
                             x2="fim:Q",
                             y=alt.Y("registros:Q", title="Registros"),
+                            y2=alt.datum(0),
                             tooltip=[
                                 alt.Tooltip("inicio:Q", title="De", format=",.1f"),
                                 alt.Tooltip("fim:Q", title="Até", format=",.1f"),
@@ -251,6 +266,7 @@ with portfolio:
                         axis=alt.Axis(format="$,.0f")),
                 x2="fim:Q",
                 y=alt.Y("registros:Q", title="Registros", scale=alt.Scale(zero=True)),
+                y2=alt.datum(0),
                 tooltip=[
                     alt.Tooltip("fumante:N", title="Grupo"),
                     alt.Tooltip("inicio:Q", title="De (USD)", format="$,.0f"),

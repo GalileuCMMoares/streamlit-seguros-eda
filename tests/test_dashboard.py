@@ -1,11 +1,21 @@
+# [IA] Codex – cenários de teste da aplicação e dos agregados usados nos gráficos.
 """Cenários de interação relevantes para a entrega."""
 
 import unittest
+from math import ceil
 from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
 
-from src.analytics import filter_data, histogram_summary, kpis, smoking_box_summary
+from src.analytics import (
+    HIGH_COST_LIMIT,
+    SMOKING_LABELS,
+    age_smoking_mean_summary,
+    filter_data,
+    histogram_summary,
+    smoking_group_summary,
+    smoking_histogram_summary,
+)
 from src.data_loader import load_data
 
 APP_PATH = str(Path(__file__).resolve().parents[1] / "app.py")
@@ -16,7 +26,7 @@ class DashboardTests(unittest.TestCase):
         app = AppTest.from_file(APP_PATH, default_timeout=30).run()
         self.assertEqual([], list(app.exception))
         self.assertEqual(2, len(app.tabs))
-        self.assertEqual(4, len(app.metric))
+        self.assertEqual(3, len(app.metric))
         self.assertEqual(8, len(app.get("vega_lite_chart")))
         self.assertEqual(2, len(app.multiselect))
         self.assertEqual(1, len(app.slider))
@@ -40,7 +50,8 @@ class DashboardTests(unittest.TestCase):
 
         app.slider[0].set_value((1100, 20000)).run()
         self.assertEqual([], list(app.exception))
-        self.assertLess(int(app.metric[0].value.replace(".", "")), 1337)
+        filtered_counts = [int(value.replace(".", "")) for value in app.metric[0].value.split(" / ")]
+        self.assertLess(sum(filtered_counts), 1337)
 
         app.multiselect[1].set_value(["Northeast"]).run()
         app.selectbox[0].set_value("Sim").run()
@@ -52,16 +63,24 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(0, len(app.metric))
         self.assertEqual(0, len(app.get("vega_lite_chart")))
 
-    def test_metrics_follow_filtered_data(self):
+    def test_group_metrics_and_top_decile_are_calculated_separately(self):
         data = load_data()
         self.assertEqual(1337, len(data))
         regions = sorted(data["regiao"].unique().tolist())
         subset = filter_data(data, (1100, 20000), regions, "Todos")
-        baseline = float(data["custo"].quantile(0.75))
-        summary = kpis(subset, baseline)
-        self.assertLess(summary["n"], len(data))
-        self.assertLess(summary["high_cost_pct"], 25.1)
-        self.assertGreater(summary["top_decile_share_pct"], 0)
+        summary = smoking_group_summary(subset)
+        self.assertEqual(set(SMOKING_LABELS), set(summary["fumante"]))
+        self.assertEqual(len(subset), int(summary["n"].sum()))
+        for row in summary.itertuples(index=False):
+            group = subset.loc[subset["fumante"] == row.fumante, "custo"]
+            self.assertEqual(len(group), row.n)
+            self.assertAlmostEqual(
+                float(group.ge(HIGH_COST_LIMIT).mean() * 100),
+                row.custos_altos_pct,
+            )
+            top_count = max(1, ceil(len(group) * 0.10))
+            expected = float(group.nlargest(top_count).sum() / group.sum() * 100)
+            self.assertAlmostEqual(expected, row.concentracao_top10_pct)
 
     def test_charts_receive_aggregates(self):
         data = load_data()
@@ -69,10 +88,18 @@ class DashboardTests(unittest.TestCase):
             frequency = histogram_summary(data, variable)
             self.assertEqual(len(data), int(frequency["registros"].sum()))
             self.assertLess(len(frequency), len(data))
-        boxes = smoking_box_summary(data)
-        self.assertEqual({"Não", "Sim"}, set(boxes["fumante"]))
-        self.assertTrue((boxes["q1"] <= boxes["mediana"]).all())
-        self.assertTrue((boxes["mediana"] <= boxes["q3"]).all())
+        histograms = smoking_histogram_summary(data)
+        self.assertEqual({"Não", "Sim"}, set(histograms["fumante"]))
+        self.assertEqual({15}, set(histograms.groupby("fumante").size()))
+        self.assertTrue((histograms.groupby("fumante")["registros"].sum() >= 10).all())
+        shared_bins = {
+            group: list(zip(frame["inicio"], frame["fim"]))
+            for group, frame in histograms.groupby("fumante")
+        }
+        self.assertEqual(shared_bins["Não"], shared_bins["Sim"])
+        age_groups = age_smoking_mean_summary(data)
+        self.assertTrue((age_groups["n"] >= 10).all())
+        self.assertEqual({"Não", "Sim"}, set(age_groups["fumante"]))
 
 
 if __name__ == "__main__":

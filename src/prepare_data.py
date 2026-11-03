@@ -1,3 +1,4 @@
+# [IA] Codex – implementação do script reprodutível de preparação da base.
 """Reproduz o tratamento mínimo usado na EDA original.
 
 Uso: python -m src.prepare_data

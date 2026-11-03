@@ -1,3 +1,4 @@
+# [IA] Codex – implementação da leitura local e da validação do CSV do app.
 """Leitura local e validação do dado tratado."""
 
 from pathlib import Path

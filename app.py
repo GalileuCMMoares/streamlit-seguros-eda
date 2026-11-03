@@ -1,3 +1,4 @@
+# [IA] Codex – implementação do esqueleto Streamlit, dos gráficos e da interação dos painéis.
 """Dois painéis descritivos a partir da EDA de custos de seguro médico."""
 
 from __future__ import annotations
@@ -10,14 +11,16 @@ import streamlit as st
 
 from src.analytics import (
     AGE_LABELS,
-    BMI_LABELS,
+    HIGH_COST_LIMIT,
+    HISTOGRAM_BINS,
+    MIN_GROUP,
     NUMERIC_LABELS,
-    age_summary,
-    bmi_smoking_summary,
+    SMOKING_LABELS,
+    age_smoking_mean_summary,
     filter_data,
     histogram_summary,
-    kpis,
-    smoking_box_summary,
+    smoking_group_summary,
+    smoking_histogram_summary,
 )
 from src.data_loader import load_data
 
@@ -26,7 +29,6 @@ st.set_page_config(page_title="Observatório de custos | EDA", page_icon="📊",
 
 NAVY = "#17324A"
 TEAL = "#087E77"
-MIN_GROUP = 10
 
 
 def usd(value: float) -> str:
@@ -43,15 +45,14 @@ def data() -> pd.DataFrame:
 
 
 all_data = data()
-base_high_cost = float(all_data["custo"].quantile(0.75))
 region_options = sorted(all_data["regiao"].unique().tolist())
 min_cost = floor(float(all_data["custo"].min()) / 100) * 100
 max_cost = ceil(float(all_data["custo"].max()) / 100) * 100
 
 st.title("Observatório de custos de seguro")
 st.write(
-    "Uma leitura exploratória da distribuição dos custos e dos grupos que merecem "
-    "investigação por um **analista de custos de uma carteira de seguros**."
+    "Uma leitura exploratória da distribuição dos custos e uma comparação direta "
+    "entre pessoas fumantes e não fumantes."
 )
 
 with st.sidebar:
@@ -174,111 +175,121 @@ with laboratory:
                         )
 
 with portfolio:
-    st.header("Indicadores da carteira")
+    st.header("Custos observados: fumantes e não fumantes")
     st.write(
-        "Visão para priorizar investigações sobre concentração de custos e diferenças "
-        "entre grupos da amostra."
+        "Compare os custos médicos faturados que aparecem nesta base. As diferenças "
+        "são descritivas e, por si só, não mostram que o tabagismo causou a diferença."
     )
     if len(filtered) < MIN_GROUP:
-        st.warning("Os indicadores são exibidos apenas com 10 registros ou mais. Amplie os filtros.")
+        st.warning("Há menos de 10 registros após os filtros. Amplie a seleção para comparar os grupos.")
     else:
-        metrics = kpis(filtered, base_high_cost)
-        c1, c2 = st.columns(2)
-        c1.metric("Registros avaliados", f"{metrics['n']:,}".replace(",", "."),
-                  help="Tamanho da amostra após os filtros.")
-        c2.metric("Custo mediano", usd(metrics["median_cost"]),
-                  help="Valor central dos custos faturados na seleção.")
-        c3, c4 = st.columns(2)
-        c3.metric("Custos altos", pct(metrics["high_cost_pct"]),
-                  help="Parcela com custo igual ou superior ao percentil 75 da base completa.")
-        c4.metric("Concentração no topo 10%", pct(metrics["top_decile_share_pct"]),
-                  help="Parcela da soma dos custos atribuída aos 10% de registros mais caros da seleção.")
+        by_smoking = smoking_group_summary(filtered)
+
+        def metric_pair(key: str, formatter) -> str:
+            values = []
+            for label in SMOKING_LABELS:
+                matches = by_smoking.loc[by_smoking["fumante"] == label, key]
+                if matches.empty or pd.isna(matches.iloc[0]):
+                    values.append("—")
+                else:
+                    values.append(formatter(matches.iloc[0]))
+            return " / ".join(values)
+
+        count_formatter = lambda value: f"{int(value):,}".replace(",", ".")
+        m1, m2, m3 = st.columns(3)
+        m1.metric(
+            "Registros avaliados · Não / Sim",
+            metric_pair("n", count_formatter),
+            help="Valores na ordem: não fumantes / fumantes.",
+        )
+        m2.metric(
+            f"Custos ≥ {usd(HIGH_COST_LIMIT)} · Não / Sim",
+            metric_pair("custos_altos_pct", pct),
+            help="Percentual de registros de cada grupo com custo faturado de pelo menos US$ 20.000.",
+        )
+        m3.metric(
+            "Custos nos 10% mais altos · Não / Sim",
+            metric_pair("concentracao_top10_pct", pct),
+            help="Para cada grupo, soma dos custos de seus 10% de registros mais caros dividida pela soma dos custos do próprio grupo.",
+        )
         st.caption(
-            f"Custo alto = valor ≥ {usd(base_high_cost)} (P75 da base tratada completa). "
-            "Grupos com menos de 10 registros são omitidos dos gráficos."
+            "Ordem dos valores: não fumantes / fumantes. O corte de custo alto é US$ 20.000. "
+            "A concentração usa os 10% de maiores custos dentro de cada grupo. "
+            "Taxas e gráficos omitem grupos ou faixas com menos de 10 registros. "
+            "Para comparar ambos, deixe Tabagismo como “Todos”."
         )
 
-        left, right = st.columns(2)
-        with left:
-            st.subheader("Custos por tabagismo")
-            by_smoker = smoking_box_summary(filtered)
-            if by_smoker.empty:
-                st.info("Nenhum grupo de tabagismo tem 10 registros nesta seleção.")
-            else:
-                base = alt.Chart(by_smoker).encode(
-                    x=alt.X("fumante:N", sort=["Não", "Sim"], title="Fumante"),
-                )
-                whiskers = base.mark_rule(color=TEAL, strokeWidth=2).encode(
-                    y=alt.Y("minimo:Q", title="Custo faturado (USD)"), y2="maximo:Q"
-                )
-                boxes = base.mark_bar(color=TEAL, size=64, opacity=0.7).encode(
-                    y="q1:Q", y2="q3:Q",
-                    tooltip=[
-                        alt.Tooltip("fumante:N", title="Fumante"),
-                        alt.Tooltip("n:Q", title="Registros"),
-                        alt.Tooltip("q1:Q", title="Q1 (USD)", format=",.0f"),
-                        alt.Tooltip("mediana:Q", title="Mediana (USD)", format=",.0f"),
-                        alt.Tooltip("q3:Q", title="Q3 (USD)", format=",.0f"),
-                    ],
-                )
-                medians = base.mark_tick(color=NAVY, thickness=3, size=70).encode(y="mediana:Q")
-                chart = (whiskers + boxes + medians).properties(height=300)
-                st.altair_chart(chart, width="stretch",
-                                alt="Boxplot agregado do custo faturado por tabagismo.")
-        with right:
-            st.subheader("Custos altos por faixa etária")
-            by_age = age_summary(filtered, base_high_cost)
-            if by_age.empty:
-                st.info("Nenhuma faixa etária tem 10 registros nesta seleção.")
-            else:
-                chart = (
-                    alt.Chart(by_age)
-                    .mark_bar(color=TEAL)
-                    .encode(
-                        x=alt.X("faixa_etaria:N", sort=AGE_LABELS, title="Idade (anos)"),
-                        y=alt.Y("high_cost_pct:Q", title="Parcela de custos altos (%)",
-                                scale=alt.Scale(domain=[0, 100])),
-                        tooltip=[
-                            alt.Tooltip("faixa_etaria:N", title="Faixa etária"),
-                            alt.Tooltip("n:Q", title="Registros"),
-                            alt.Tooltip("high_cost_pct:Q", title="Custos altos (%)", format=".1f"),
-                        ],
-                    )
-                    .properties(height=300)
-                )
-                st.altair_chart(chart, width="stretch",
-                                alt="Gráfico de barras da participação de custos altos por faixa etária.")
-
-        st.subheader("Custo mediano por faixa de IMC e tabagismo")
-        by_bmi_smoking = bmi_smoking_summary(filtered)
-        if by_bmi_smoking.empty:
-            st.info("Nenhuma combinação de IMC e tabagismo tem 10 registros nesta seleção.")
+        st.subheader("Custo mediano por grupo")
+        median_data = by_smoking.loc[by_smoking["n"] >= MIN_GROUP]
+        if median_data.empty:
+            st.info("Nenhum grupo de tabagismo tem 10 registros nesta seleção.")
         else:
-            base = alt.Chart(by_bmi_smoking).encode(
-                x=alt.X("faixa_imc:N", sort=BMI_LABELS, title="Faixa de IMC (kg/m²)"),
-                y=alt.Y("fumante:N", sort=["Não", "Sim"], title="Fumante"),
-            )
-            cells = base.mark_rect().encode(
-                color=alt.Color("median_cost:Q", title="Mediana (USD)",
-                                scale=alt.Scale(range=["#E9F3F2", TEAL])),
+            bars = alt.Chart(median_data).mark_bar(color=TEAL).encode(
+                x=alt.X("fumante:N", sort=SMOKING_LABELS, title="Tabagismo"),
+                y=alt.Y("mediana:Q", title="Custo mediano (USD)",
+                        axis=alt.Axis(format="$,.0f"), scale=alt.Scale(zero=True)),
                 tooltip=[
-                    alt.Tooltip("faixa_imc:N", title="Faixa de IMC"),
-                    alt.Tooltip("fumante:N", title="Fumante"),
+                    alt.Tooltip("fumante:N", title="Grupo"),
                     alt.Tooltip("n:Q", title="Registros"),
-                    alt.Tooltip("median_cost:Q", title="Custo mediano (USD)", format=",.0f"),
+                    alt.Tooltip("mediana:Q", title="Custo mediano (USD)", format="$,.0f"),
                 ],
             )
-            labels = base.mark_text(fontSize=15).encode(
-                text=alt.Text("median_cost:Q", format=",.0f"),
-                color=alt.condition(
-                    f"datum.median_cost > {float(by_bmi_smoking['median_cost'].median())}",
-                    alt.value("white"), alt.value(NAVY),
-                ),
+            labels = alt.Chart(median_data).mark_text(dy=-8, color=NAVY).encode(
+                x=alt.X("fumante:N", sort=SMOKING_LABELS),
+                y="mediana:Q",
+                text=alt.Text("mediana:Q", format="$,.0f"),
             )
+            st.altair_chart((bars + labels).properties(height=300), width="stretch",
+                            alt="Barras comparando a mediana dos custos faturados entre não fumantes e fumantes, com valores escritos.")
+
+        st.subheader(f"Distribuição dos custos · {HISTOGRAM_BINS} intervalos, contagem de registros")
+        hist_data = smoking_histogram_summary(filtered)
+        if hist_data.empty:
+            st.info("Não há grupos com pelo menos 10 registros para mostrar o histograma.")
+        else:
+            hist = alt.Chart(hist_data).mark_bar(color=TEAL, opacity=0.8).encode(
+                x=alt.X("inicio:Q", title="Custo faturado (USD)",
+                        axis=alt.Axis(format="$,.0f")),
+                x2="fim:Q",
+                y=alt.Y("registros:Q", title="Registros", scale=alt.Scale(zero=True)),
+                tooltip=[
+                    alt.Tooltip("fumante:N", title="Grupo"),
+                    alt.Tooltip("inicio:Q", title="De (USD)", format="$,.0f"),
+                    alt.Tooltip("fim:Q", title="Até (USD)", format="$,.0f"),
+                    alt.Tooltip("registros:Q", title="Registros"),
+                ],
+            )
+            chart = hist.facet(
+                column=alt.Column("fumante:N", sort=SMOKING_LABELS, title="Tabagismo"),
+                columns=2,
+            ).resolve_scale(x="shared", y="shared").properties(spacing=24)
             st.altair_chart(
-                (cells + labels).properties(height=220), width="stretch",
-                alt="Mapa de calor do custo mediano por faixa de IMC e tabagismo, com números em USD.",
+                chart, width="stretch",
+                alt="Histogramas de contagem dos custos faturados por tabagismo, com 15 intervalos e escalas iguais.",
             )
+            st.caption("Os dois grupos usam os mesmos 15 limites de custo e a mesma escala de contagem.")
+
+        st.subheader("Custo médico médio por faixa etária")
+        age_data = age_smoking_mean_summary(filtered)
+        if age_data.empty:
+            st.info("Nenhuma combinação de faixa etária e tabagismo tem 10 registros nesta seleção.")
+        else:
+            age_chart = alt.Chart(age_data).mark_bar().encode(
+                x=alt.X("faixa_etaria:N", sort=AGE_LABELS, title="Faixa etária (anos)"),
+                xOffset=alt.XOffset("fumante:N", sort=SMOKING_LABELS),
+                y=alt.Y("custo_medio:Q", title="Custo médio faturado (USD)",
+                        axis=alt.Axis(format="$,.0f"), scale=alt.Scale(zero=True)),
+                color=alt.Color("fumante:N", sort=SMOKING_LABELS, title="Tabagismo",
+                                scale=alt.Scale(domain=SMOKING_LABELS, range=[NAVY, TEAL])),
+                tooltip=[
+                    alt.Tooltip("faixa_etaria:N", title="Faixa etária"),
+                    alt.Tooltip("fumante:N", title="Grupo"),
+                    alt.Tooltip("n:Q", title="Registros"),
+                    alt.Tooltip("custo_medio:Q", title="Custo médio (USD)", format="$,.0f"),
+                ],
+            ).properties(height=320)
+            st.altair_chart(age_chart, width="stretch",
+                            alt="Barras agrupadas do custo médico médio por faixa etária, comparando fumantes e não fumantes.")
 
 st.divider()
 st.caption(

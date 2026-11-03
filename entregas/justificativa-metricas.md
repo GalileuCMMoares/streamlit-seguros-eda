@@ -1,12 +1,19 @@
-# Justificativa das métricas do Dashboard 2
+# Rascunho para justificar as métricas
 
-**Público-alvo:** analista de custos de uma carteira de seguros de saúde. A pergunta operacional é quais recortes da amostra merecem investigação adicional de concentração de custos. Os indicadores não são utilizados para avaliar pessoas ou estabelecer preços.
+Este arquivo organiza as definições técnicas do Dashboard 2. **A justificativa pessoal ainda precisa ser escrita pelo estudante.** Na conversa de implementação, o Codex inicialmente sugeriu métricas e redigiu uma justificativa; por isso, não apresente os campos abaixo como uma justificativa criada sem apoio de IA. Consulte as diretrizes da atividade e a professora sobre como declarar esse uso.
 
-| Métrica | Variável e cálculo | Por que foi escolhida / o que comunica | Decisão que pode apoiar |
-| --- | --- | --- | --- |
-| Registros avaliados | Contagem das observações após os filtros | Dá contexto ao tamanho da amostra e evita comparar percentuais sem denominador. | Verificar se o recorte tem volume suficiente antes de investigar. |
-| Custo mediano | Mediana de `custo` no recorte, em USD | Representa o valor central sem ser tão afetado pela cauda à direita observada na EDA. | Priorizar segmentos com custo típico elevado para análise adicional. |
-| Custos altos | Percentual de registros com `custo` ≥ P75 da base tratada completa | Usa um limiar fixo, permitindo comparar recortes ao mesmo referencial mesmo quando o slider muda. | Identificar grupos com maior concentração de valores altos. |
-| Concentração no topo 10% | Soma dos custos dos `ceil(0,10 × n)` maiores valores / soma total dos custos do recorte | Mostra quanto da soma observada está concentrada na cauda superior. | Avaliar onde a variabilidade de custos exige análise mais detalhada. |
+## Público e medidas confirmadas no diálogo
 
-Todos os indicadores são recalculados ao mudar intervalo de custo, região ou tabagismo. Se o recorte tiver menos de 10 registros, eles não são exibidos. Os três gráficos complementam os cartões: distribuição por tabagismo, participação de custos altos por faixa etária e mediana por faixa de IMC e tabagismo. Grupos com menos de 10 registros são omitidos. Diferenças observadas são associações descritivas; a base não informa cobertura, estado clínico ou outros fatores que permitam explicar causas.
+- Público: pessoas fumantes, com comparação explícita a pessoas não fumantes.
+- Medidas escolhidas para o painel: registros avaliados; proporção de custos faturados de pelo menos US$ 20.000; participação da soma dos custos dos 10% de maiores valores **dentro de cada grupo**.
+- Gráficos escolhidos: comparação das medianas; histogramas de contagem com 15 intervalos comuns; custo médico médio por faixa etária, separado por tabagismo.
+
+## Definições usadas pelo app
+
+| Medida | Definição operacional | Minha justificativa e o que quero comunicar (preencher com minhas palavras) |
+| --- | --- | --- |
+| Registros avaliados | Número de linhas filtradas em cada grupo de tabagismo. | _Escreva aqui._ |
+| Custos altos | Percentual de registros do grupo com custo faturado ≥ US$ 20.000. O mesmo limite vale para os dois grupos. | _Explique por que escolheu esse limite e o que deseja que o público entenda._ |
+| Concentração nos 10% mais altos | Dentro de cada grupo, ordenam-se os custos; somam-se os `ceil(0,10 × n)` maiores; divide-se essa soma pela soma de todos os custos do mesmo grupo. | _Explique por que escolheu essa medida e o que a comparação deve mostrar._ |
+
+O app compara custos faturados observados. A fonte não especifica um período, e a comparação descritiva não prova que fumar causou uma diferença.

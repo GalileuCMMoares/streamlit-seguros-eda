@@ -1,3 +1,4 @@
+# [IA] Codex – implementação e revisão dos cálculos agregados dos dashboards.
 """Cálculos usados pelos dois painéis."""
 
 from __future__ import annotations
@@ -15,7 +16,10 @@ NUMERIC_LABELS = {
     "custo": "Custo faturado (USD)",
 }
 AGE_LABELS = ["18–25", "26–40", "41–55", "56+"]
-BMI_LABELS = ["< 25", "25 a < 30", "≥ 30"]
+SMOKING_LABELS = ["Não", "Sim"]
+HIGH_COST_LIMIT = 20_000
+HISTOGRAM_BINS = 15
+MIN_GROUP = 10
 
 
 def filter_data(
@@ -37,46 +41,7 @@ def add_groups(data: pd.DataFrame) -> pd.DataFrame:
     grouped["faixa_etaria"] = pd.cut(
         grouped["idade"], bins=[0, 25, 40, 55, float("inf")], labels=AGE_LABELS
     )
-    grouped["faixa_imc"] = pd.cut(
-        grouped["imc"], bins=[0, 25, 30, float("inf")], labels=BMI_LABELS,
-        right=False,
-    )
     return grouped
-
-
-def kpis(data: pd.DataFrame, high_cost_limit: float) -> dict[str, float | int]:
-    if data.empty:
-        raise ValueError("Não há registros para calcular os indicadores")
-    top_count = max(1, ceil(len(data) * 0.10))
-    return {
-        "n": len(data),
-        "median_cost": float(data["custo"].median()),
-        "high_cost_pct": float(data["custo"].ge(high_cost_limit).mean() * 100),
-        "top_decile_share_pct": float(
-            data["custo"].nlargest(top_count).sum() / data["custo"].sum() * 100
-        ),
-    }
-
-
-def age_summary(data: pd.DataFrame, high_cost_limit: float) -> pd.DataFrame:
-    grouped = add_groups(data)
-    result = (
-        grouped.groupby("faixa_etaria", observed=True)
-        .agg(n=("custo", "size"), high_cost_count=("custo", lambda s: s.ge(high_cost_limit).sum()))
-        .reset_index()
-    )
-    result["high_cost_pct"] = result["high_cost_count"] / result["n"] * 100
-    return result.loc[result["n"] >= 10]
-
-
-def bmi_smoking_summary(data: pd.DataFrame) -> pd.DataFrame:
-    grouped = add_groups(data)
-    result = (
-        grouped.groupby(["faixa_imc", "fumante"], observed=True)
-        .agg(n=("custo", "size"), median_cost=("custo", "median"))
-        .reset_index()
-    )
-    return result.loc[result["n"] >= 10]
 
 
 def histogram_summary(data: pd.DataFrame, variable: str) -> pd.DataFrame:
@@ -90,18 +55,76 @@ def histogram_summary(data: pd.DataFrame, variable: str) -> pd.DataFrame:
     )
 
 
-def smoking_box_summary(data: pd.DataFrame) -> pd.DataFrame:
-    """Cinco números do boxplot por grupo, omitindo grupos pequenos."""
-    result = (
-        data.groupby("fumante")
-        .agg(
-            n=("custo", "size"),
-            minimo=("custo", "min"),
-            q1=("custo", lambda s: s.quantile(0.25)),
-            mediana=("custo", "median"),
-            q3=("custo", lambda s: s.quantile(0.75)),
-            maximo=("custo", "max"),
+def smoking_group_summary(
+    data: pd.DataFrame,
+    high_cost_limit: float = HIGH_COST_LIMIT,
+    min_group: int = MIN_GROUP,
+) -> pd.DataFrame:
+    """Resume indicadores por tabagismo; taxas só são publicadas para grupos maiores."""
+    rows: list[dict[str, float | int | str]] = []
+    for smoking, group in data.groupby("fumante", sort=False):
+        n = len(group)
+        costs = group["custo"]
+        row: dict[str, float | int | str] = {
+            "fumante": smoking,
+            "n": n,
+            "mediana": float(costs.median()),
+            "custo_medio": float(costs.mean()),
+            "custos_altos_pct": float(costs.ge(high_cost_limit).mean() * 100)
+            if n >= min_group else np.nan,
+            "concentracao_top10_pct": np.nan,
+        }
+        if n >= min_group:
+            top_count = max(1, ceil(n * 0.10))
+            total_cost = float(costs.sum())
+            row["concentracao_top10_pct"] = (
+                float(costs.nlargest(top_count).sum() / total_cost * 100)
+                if total_cost else np.nan
+            )
+        rows.append(row)
+    return pd.DataFrame(rows, columns=[
+        "fumante", "n", "mediana", "custo_medio", "custos_altos_pct",
+        "concentracao_top10_pct",
+    ])
+
+
+def smoking_histogram_summary(
+    data: pd.DataFrame,
+    bins: int = HISTOGRAM_BINS,
+    min_group: int = MIN_GROUP,
+) -> pd.DataFrame:
+    """Gera histogramas por grupo usando os mesmos 15 limites de custo."""
+    eligible = data.groupby("fumante")["custo"].size()
+    eligible = eligible[eligible >= min_group].index.tolist()
+    if not eligible:
+        return pd.DataFrame(columns=["fumante", "inicio", "fim", "registros"])
+
+    comparison = data.loc[data["fumante"].isin(eligible)]
+    edges = np.histogram_bin_edges(comparison["custo"], bins=bins)
+    rows: list[dict[str, float | int | str]] = []
+    for smoking in SMOKING_LABELS:
+        if smoking not in eligible:
+            continue
+        counts, _ = np.histogram(
+            comparison.loc[comparison["fumante"] == smoking, "custo"], bins=edges
         )
+        rows.extend(
+            {"fumante": smoking, "inicio": float(edges[i]),
+             "fim": float(edges[i + 1]), "registros": int(count)}
+            for i, count in enumerate(counts)
+        )
+    return pd.DataFrame(rows)
+
+
+def age_smoking_mean_summary(
+    data: pd.DataFrame,
+    min_group: int = MIN_GROUP,
+) -> pd.DataFrame:
+    """Calcula custo médio por faixa etária e tabagismo, omitindo células pequenas."""
+    grouped = add_groups(data)
+    result = (
+        grouped.groupby(["faixa_etaria", "fumante"], observed=True)
+        .agg(n=("custo", "size"), custo_medio=("custo", "mean"))
         .reset_index()
     )
-    return result.loc[result["n"] >= 10]
+    return result.loc[result["n"] >= min_group]

@@ -73,18 +73,23 @@ def smoking_group_summary(
             "custos_altos_pct": float(costs.ge(high_cost_limit).mean() * 100)
             if n >= min_group else np.nan,
             "concentracao_top10_pct": np.nan,
+            "concentracao_bottom10_pct": np.nan,
         }
         if n >= min_group:
-            top_count = max(1, ceil(n * 0.10))
+            decile_count = max(1, ceil(n * 0.10))
             total_cost = float(costs.sum())
             row["concentracao_top10_pct"] = (
-                float(costs.nlargest(top_count).sum() / total_cost * 100)
+                float(costs.nlargest(decile_count).sum() / total_cost * 100)
+                if total_cost else np.nan
+            )
+            row["concentracao_bottom10_pct"] = (
+                float(costs.nsmallest(decile_count).sum() / total_cost * 100)
                 if total_cost else np.nan
             )
         rows.append(row)
     return pd.DataFrame(rows, columns=[
         "fumante", "n", "mediana", "custo_medio", "custos_altos_pct",
-        "concentracao_top10_pct",
+        "concentracao_top10_pct", "concentracao_bottom10_pct",
     ])
 
 

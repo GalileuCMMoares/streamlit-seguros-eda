@@ -195,12 +195,11 @@ with portfolio:
                     values.append(formatter(matches.iloc[0]))
             return " / ".join(values)
 
-        count_formatter = lambda value: f"{int(value):,}".replace(",", ".")
         m1, m2, m3 = st.columns(3)
         m1.metric(
-            "Registros avaliados · Não / Sim",
-            metric_pair("n", count_formatter),
-            help="Valores na ordem: não fumantes / fumantes.",
+            "Custos nos 10% mais baixos · Não / Sim",
+            metric_pair("concentracao_bottom10_pct", pct),
+            help="Para cada grupo, soma dos custos de seus 10% de registros mais baratos dividida pela soma dos custos do próprio grupo.",
         )
         m2.metric(
             f"Custos ≥ {usd(HIGH_COST_LIMIT)} · Não / Sim",
@@ -214,7 +213,7 @@ with portfolio:
         )
         st.caption(
             "Ordem dos valores: não fumantes / fumantes. O corte de custo alto é US$ 20.000. "
-            "A concentração usa os 10% de maiores custos dentro de cada grupo. "
+            "Os 10% de menores e maiores custos são calculados separadamente dentro de cada grupo. "
             "Taxas e gráficos omitem grupos ou faixas com menos de 10 registros. "
             "Para comparar ambos, deixe Tabagismo como “Todos”."
         )

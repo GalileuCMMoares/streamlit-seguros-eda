@@ -15,7 +15,7 @@ Aplicação Streamlit construída a partir da [EDA original](notebooks/eda-origi
 
 O público do segundo painel são **pessoas fumantes**, com comparação explícita a pessoas não fumantes. O painel resume diferenças observadas na amostra; não afirma que o tabagismo causou essas diferenças. Não é um diagnóstico ou estimativa do custo de saúde de uma pessoa.
 
-As três medidas são: registros avaliados em cada grupo; percentual com custo faturado de pelo menos US$ 20.000; e parcela da soma de custos concentrada nos 10% de maiores valores dentro de cada grupo. Os gráficos mostram a mediana com os valores escritos, histogramas em contagem com 15 intervalos e limites comuns, e custo médio por faixa etária separado por tabagismo.
+As três medidas são: percentual com custo faturado de pelo menos US$ 20.000; parcela do custo total representada pelos 10% de menores custos em cada grupo; e parcela representada pelos 10% de maiores custos. Os dois decís são calculados separadamente entre fumantes e não fumantes. Os gráficos mostram a mediana com os valores escritos, histogramas em contagem com 15 intervalos e limites comuns, e custo médio por faixa etária separado por tabagismo.
 
 ## Executar localmente
 
@@ -53,9 +53,10 @@ Os [rascunhos, a justificativa e a validação do app publicado](entregas/README
 ## Definições e limites
 
 - **Custo alto:** custo faturado igual ou superior a **US$ 20.000**. O mesmo limite é aplicado a fumantes e não fumantes e permanece fixo ao filtrar.
+- **Custos nos 10% mais baixos:** calculados separadamente por tabagismo. Para cada grupo, divide-se a soma dos `ceil(10% × n)` menores custos pela soma dos custos de todo o grupo.
 - **Concentração nos 10% mais altos:** calculada separadamente por tabagismo. Para cada grupo, divide-se a soma dos `ceil(10% × n)` maiores custos pela soma dos custos de todo o grupo.
 - **Histograma do painel 2:** 15 intervalos definidos com limites comuns entre os grupos e contagem no eixo vertical.
-- **Amostras pequenas:** taxas e gráficos comparativos omitem grupos ou combinações com menos de 10 registros; a contagem de registros permanece indicada.
+- **Amostras pequenas:** taxas e gráficos comparativos omitem grupos ou combinações com menos de 10 registros; a contagem da amostra filtrada permanece indicada acima dos painéis.
 - **Privacidade:** a base é pública, não contém nome, contato ou identificador direto, e os gráficos recebem apenas dados agregados do servidor. Nenhum arquivo de segredos é versionado.
 - **Interpretação:** `charges` corresponde a custos individuais faturados na base. A fonte não especifica um período de referência; portanto, o painel não os chama de custos anuais.
 

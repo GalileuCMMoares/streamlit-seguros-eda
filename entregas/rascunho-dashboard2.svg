@@ -1,0 +1,8 @@
+<!-- [IA] Codex – atualização do rascunho visual após a troca da métrica no Dashboard 2. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1067" viewBox="0 0 1600 1067">
+  <image href="rascunho-dashboard2-base.png" x="0" y="0" width="1600" height="1067" />
+  <rect x="376" y="251" width="373" height="125" rx="15" fill="#e9f4f2" stroke="#bfd6d3" stroke-width="2" />
+  <text x="393" y="278" font-family="Arial, sans-serif" font-size="16" font-weight="600" fill="#567080">Custos nos 10% mais baixos · Não / Sim</text>
+  <text x="393" y="326" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#17324a">2,0% / 5,0%</text>
+  <text x="393" y="357" font-family="Arial, sans-serif" font-size="14" fill="#567080">Soma dos menores custos ÷ custo total do grupo</text>
+</svg>

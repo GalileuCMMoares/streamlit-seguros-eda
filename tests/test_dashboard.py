@@ -48,10 +48,10 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual([], list(app.exception))
         self.assertEqual(6, len(app.get("vega_lite_chart")))
 
+        initial_high_cost_metric = app.metric[1].value
         app.slider[0].set_value((1100, 20000)).run()
         self.assertEqual([], list(app.exception))
-        filtered_counts = [int(value.replace(".", "")) for value in app.metric[0].value.split(" / ")]
-        self.assertLess(sum(filtered_counts), 1337)
+        self.assertNotEqual(initial_high_cost_metric, app.metric[1].value)
 
         app.multiselect[1].set_value(["Northeast"]).run()
         app.selectbox[0].set_value("Sim").run()
@@ -63,7 +63,7 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(0, len(app.metric))
         self.assertEqual(0, len(app.get("vega_lite_chart")))
 
-    def test_group_metrics_and_top_decile_are_calculated_separately(self):
+    def test_group_metrics_and_deciles_are_calculated_separately(self):
         data = load_data()
         self.assertEqual(1337, len(data))
         regions = sorted(data["regiao"].unique().tolist())
@@ -81,6 +81,8 @@ class DashboardTests(unittest.TestCase):
             top_count = max(1, ceil(len(group) * 0.10))
             expected = float(group.nlargest(top_count).sum() / group.sum() * 100)
             self.assertAlmostEqual(expected, row.concentracao_top10_pct)
+            expected_bottom = float(group.nsmallest(top_count).sum() / group.sum() * 100)
+            self.assertAlmostEqual(expected_bottom, row.concentracao_bottom10_pct)
 
     def test_charts_receive_aggregates(self):
         data = load_data()
